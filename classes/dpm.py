@@ -1,43 +1,75 @@
 import numpy as np
-from variables import RandomVariable
+from .variables import RandomVariable
+from .sampler import joint_normal, mh_step
 
+import logging
+logging.getLogger(__name__)
 
 class DPM:
     base_measure:list[RandomVariable]
     M:float=1.0
-
-    def  __init__(self, base_measure:list[RandomVariable], M=1.0) -> None:
+    parameters:list
+    
+    def  __init__(self, base_measure:list[RandomVariable], joint_probability=joint_normal, M=1.0) -> None:
         if isinstance(base_measure, list):
             self.base_measure = base_measure
         else:
             self.base_measure = [base_measure]
 
         self.M = M
+        self.parameters = []
 
-        self.current_measures = []
+    def sample_measure(self) -> list:
+        random_measures = []
+        for i in range(len(self.base_measure)):
+            random_measures.append(self.base_measure[i].random_sample())
 
+        return random_measures
 
-    def initialize_measures(self):
-        pass
-
-    def sample_measure(self):
-        pass
-
-    def log_p(self):
-        pass
+    def log_p(self, y, thetas_to_sample, sample_coefficients) -> np.ndarray:
+        log_p = np.zeros(shape=len(thetas_to_sample))
+        for i in range(len(thetas_to_sample)):
+            log_p[i] = joint_normal(y, theta=thetas_to_sample[i]) + np.log(sample_coefficients[i])
+        return log_p
+        
+    def set_parameters(self, parameters:list[RandomVariable] | np.ndarray):
+        cols = len(self.base_measure)
+        if isinstance(parameters, np.ndarray):
+            updated_params = []
+            rows = len(parameters)
+            for i in range(rows):
+                updated_params_row = []
+                for j in range(cols):
+                    new_parameter = self.base_measure[j].new(current=parameters[i][j])
+                    updated_params_row.append(new_parameter)
+                updated_params.append(updated_params_row)
+            self.parameters = updated_params
+        else:
+            self.parameters = parameters
+        logging.info(f"parameters: {self.parameters}")
 
     def set_weights(self, weights):
         self.weights = weights
 
-    def set_measures(self, measures:list):
-        self.current_measures = measures
+    @property
+    def values(self) -> float | np.ndarray:
+        rows = len(self.parameters)
+        cols = len(self.parameters[0])
+        return_parameters = np.zeros((rows, cols))
+
+        for i in range(rows):
+            for j in range(cols):
+                return_parameters[i][j] = self.parameters[i][j].current
+        
+        return return_parameters
 
 
 def dpm_sampler():
     pass
 
+
 def sample_cluster_assignemnts(y:np.ndarray, s:np.ndarray, dpm:DPM, m=1):
-    thetas = dpm.measures
+    thetas = dpm.values
     M = dpm.M
     for i in range(len(y)):
         c_j, n_j = np.unique(s, return_counts=True)
@@ -52,18 +84,21 @@ def sample_cluster_assignemnts(y:np.ndarray, s:np.ndarray, dpm:DPM, m=1):
         last_c_j = np.max(c_j)
         h = last_c_j + m
 
-        theta_h = [dpm.random_sample()]
+        theta_h = np.array([dpm.sample_measure()])
 
         clusters_to_sample = np.append(c_j, np.array(range(last_c_j + 1, h + 1)) )
         thetas_to_sample = np.concatenate((thetas, theta_h))
 
         N = np.sum(n_j)
         n_j[c_i] = n_j[c_i] - 1
-        
+
         sample_coefficients = n_j / (N - 1 + M)
         new_cluster_coefficient = (M / m) / (N - 1 + M)
 
         sample_coefficients = np.append(sample_coefficients, np.ones(m) * new_cluster_coefficient)
+
+        # Check the sizes of clusters and the sample coefficients
+        assert clusters_to_sample.shape == sample_coefficients.shape
 
         cluster_theta_mask = np.ones_like(clusters_to_sample, dtype=bool)
 
@@ -74,14 +109,15 @@ def sample_cluster_assignemnts(y:np.ndarray, s:np.ndarray, dpm:DPM, m=1):
 
         clusters_to_sample_masked = clusters_to_sample[cluster_theta_mask]
 
-        log_p = dpm.log_p(y[i], theta=thetas_to_sample)  # + np.log(sample_coefficients)
+        log_p = dpm.log_p(y[i], thetas_to_sample=thetas_to_sample, sample_coefficients=sample_coefficients) # + np.log(sample_coefficients)
         log_p = log_p[clusters_to_sample_masked]
 
         p = log_p_to_p(log_p)
         p = p / np.sum(p)
-
+ 
         new_cluster = np.random.choice(clusters_to_sample_masked, p=p)
-
+        if (s[i] != new_cluster):
+            logging.info(f"{i:>2}: Assiging new cluster {s[i]} to {new_cluster}")
         s[i] = new_cluster
 
         c_j, n_j = np.unique(s, return_counts=True)
@@ -90,9 +126,35 @@ def sample_cluster_assignemnts(y:np.ndarray, s:np.ndarray, dpm:DPM, m=1):
         # Now reset the clusters
         s = reset_clusters_index_to_zero(s)
 
-    dpm.measures = thetas
-
+    dpm.set_parameters(thetas)
     return s
+
+def sample_over_measures(y:np.ndarray, s:np.ndarray, dpm:DPM, likelihood=None, prior=None, step=0.2):
+    logger = logging.getLogger(__name__)
+    logging.info(__name__)
+    thetas = dpm.parameters
+    rows = len(thetas)
+    results = []
+    logging.info(f"thetas: {thetas} {type(thetas)}")
+    logging.info(f"rows:   {rows}")
+
+    c_j, n_j = np.unique(s, return_counts=True)
+
+    logging.info(f"c_j:    {c_j} {len(c_j)}")
+
+    assert len(c_j) == rows
+
+    for row in range(rows):
+        theta = thetas[row]
+        y_ = y[s == c_j[row]]
+        logging.info(f"y_: {y_}")
+        result = mh_step(y, thetas=theta, likelihood=joint_normal, step_size=step)
+        results.append(result)
+
+    logging.info(f"results: {results}")
+    return results
+
+
 
 def log_likelihood(y, theta):
     return np.sum(distributions.norm.logpdf(y, loc=theta))
@@ -111,18 +173,18 @@ def mh_steps(y:np.ndarray, thetas:np.ndarray, likelihood=None, prior=None, step=
 
     return results
 
-def mh_step(y, theta, likelihood=None, prior=None, step=0.2):
-    theta_proposed = distributions.norm.rvs(loc=theta, scale=step*1)
-    log_p = log_likelihood(y, theta_proposed) + log_prior(theta) - log_likelihood(y, theta) - log_prior(theta_proposed)
+# def mh_step(y, theta, likelihood=None, prior=None, step=0.2):
+#     theta_proposed = distributions.norm.rvs(loc=theta, scale=step*1)
+#     log_p = log_likelihood(y, theta_proposed) + log_prior(theta) - log_likelihood(y, theta) - log_prior(theta_proposed)
 
-    a = np.exp(log_p)
-    p = np.min([1, a])
-    u = distributions.uniform.rvs(loc=0, scale=1)
+#     a = np.exp(log_p)
+#     p = np.min([1, a])
+#     u = distributions.uniform.rvs(loc=0, scale=1)
 
-    if p > u:
-        theta = theta_proposed
+#     if p > u:
+#         theta = theta_proposed
 
-    return theta  
+#     return theta  
 
 def log_p_to_p(log_p:np.ndarray) -> np.ndarray:
     return np.exp(log_p - np.max(log_p))
