@@ -63,3 +63,25 @@ class Gamma(RandomVariable):
     def __repr__(self) -> str:
         shape, scale = self.prior
         return f"Gamma({shape},{scale}) - current: {self.current}"
+    
+
+class InvGamma(RandomVariable):
+    def __init__(self, shape=1.0, scale=1.0, current=1.0) -> None:
+        self.prior = [shape, scale]
+        self.current = current
+
+    def prior_likelihood(self, y:float) -> float:
+        shape, scale = self.prior
+        return distributions.invgamma.logpdf(y, a=shape, scale=scale)
+    
+    def random_sample(self) -> float:
+        shape, scale = self.prior
+        return distributions.invgamma.rvs(a=shape, scale=scale)
+    
+    def new(self, current:float):
+        shape, scale = self.prior
+        return InvGamma(shape=shape, scale=scale, current=current)
+
+    def __repr__(self) -> str:
+        shape, scale = self.prior
+        return f"InvGamma({shape},{scale}) - current: {self.current}"
