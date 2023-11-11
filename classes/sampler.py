@@ -47,12 +47,13 @@ class MHSampler:
         self._chain = chain
 
 
-def get_chain_parameters(chain:list[Variable]):
-    parameters = []
-    for row in chain:
-        parameters.append(row.get_values())
+    def get_chain(self):
+        chain = self._chain
+        parameters = []
+        for row in chain:
+            parameters.append(row.get_values())
 
-    return parameters
+        return parameters
 
 
 # def normal(y, theta:np.ndarray):
