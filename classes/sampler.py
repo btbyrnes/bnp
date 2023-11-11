@@ -1,11 +1,11 @@
 import numpy as np
 from scipy.stats import distributions
-from classes.variables import Variable, Normal
+from classes.variables import Variable
 
 import logging
 
 
-def mh_step(y:np.ndarray, var:Normal):
+def mh_step(y:np.ndarray, var:Variable):
     proposed = var.generate_mh_proposals()
     
     log_current = var.log_likelihood(y)
@@ -26,20 +26,25 @@ def mh_step(y:np.ndarray, var:Normal):
 class MHSampler:
     _data:np.ndarray
     _variable:Variable
-    _chain:list         = []
+    _chain:list
 
     def __init__(self, y, variable:Variable) -> None:
         self._data = y
         self._variable = variable
 
     def sample(self, steps=100, burn_in=10, lag=5):
+        chain = []
         y = self._data
         variable = self._variable
         new_var = variable
         for i in range(steps):
             new_var = mh_step(y, new_var)
             if i > burn_in and i % lag == 0:
-                self._chain.append(new_var)
+                chain.append(new_var)
+        self.set_chain(chain)
+
+    def set_chain(self, chain):
+        self._chain = chain
 
 
 def get_chain_parameters(chain:list[Variable]):
