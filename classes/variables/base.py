@@ -19,15 +19,3 @@ class Parameter(ABC):
 
     def __repr__(self) -> str: ...
 
-
-class Variable(ABC):
-    _params: ...
-    def __init__(self, params:list[Parameter]): self._params = params
-
-    def get_values(self) -> float: return [p.get_value() for p in self._params]
-
-    def generate_mh_proposals(self): ...
-
-    def log_likelihood(self, y) -> float: ...
-
-    def __repr__(self) -> str: return str(self)

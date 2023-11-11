@@ -1,14 +1,28 @@
 import numpy as np
-from .variables import Variable, Normal
+from .variables import Likelihood, Normal, Parameter
 # from .sampler import joint_normal, mh_step
 
 import logging
+
+class Measure:
+    _params:list[Parameter]
+    _likelihood:Likelihood
+    def __init__(self, params:list[Parameter]) -> None:
+        self._params = params
+
+    def random_sample(self) -> list[Parameter]:
+        random = []
+        for p in self._params:
+            random.append(p.random_draw())
+        return 
+
 
 
 class DPM:
     _base_measure:Variable  = Normal()
     _M:float                = 1.0
     _measures:list          = [Variable]
+    _m:int                  = 1
 
     def __init__(self, base_measure:Variable=Normal(), M=1.0) -> None:
         self._base_measure = base_measure
@@ -16,6 +30,87 @@ class DPM:
 
     def add_measure(self, measure:Variable):
         self._measures.append(measure)
+
+
+    def sample_over_cluster_assignments(self, y_:np.ndarray, s_:np.ndarray):
+        m = self._m
+
+        for i in range(y_): # for each row
+            y = np.delete(y_, i)
+            s = np.delete(s_, i)
+
+            c_j, n_j = np.unique(s, return_counts=True)
+            last_c_j = np.max(c_j)
+            h = last_c_j + m
+
+
+
+
+
+
+
+
+
+# def sample_cluster_assignemnts(y:np.ndarray, s:np.ndarray, dpm:DPM, m=1):
+#     thetas = dpm.values
+#     M = dpm.M
+#     for i in range(len(y)):
+#         c_j, n_j = np.unique(s, return_counts=True)
+#         # Ensure we start with clusters indexed from zero
+#         assert np.min(c_j) == 0
+
+#         data_mask = np.ones(s.shape, dtype=bool)
+#         data_mask[i] = 0
+
+#         c_i = s[i]
+        
+#         last_c_j = np.max(c_j)
+#         h = last_c_j + m
+
+#         theta_h = np.array([dpm.sample_measure()])
+
+#         clusters_to_sample = np.append(c_j, np.array(range(last_c_j + 1, h + 1)) )
+#         thetas_to_sample = np.concatenate((thetas, theta_h))
+
+#         N = np.sum(n_j)
+#         n_j[c_i] = n_j[c_i] - 1
+
+#         sample_coefficients = n_j / (N - 1 + M)
+#         new_cluster_coefficient = (M / m) / (N - 1 + M)
+
+#         sample_coefficients = np.append(sample_coefficients, np.ones(m) * new_cluster_coefficient)
+
+#         # Check the sizes of clusters and the sample coefficients
+#         assert clusters_to_sample.shape == sample_coefficients.shape
+
+#         cluster_theta_mask = np.ones_like(clusters_to_sample, dtype=bool)
+
+#         if n_j[c_i] < 1:
+#             cluster_theta_mask[c_i] = False
+#         else:
+#             pass
+
+#         clusters_to_sample_masked = clusters_to_sample[cluster_theta_mask]
+
+#         log_p = dpm.log_p(y[i], thetas_to_sample=thetas_to_sample, sample_coefficients=sample_coefficients) # + np.log(sample_coefficients)
+#         log_p = log_p[clusters_to_sample_masked]
+
+#         p = log_p_to_p(log_p)
+#         p = p / np.sum(p)
+ 
+#         new_cluster = np.random.choice(clusters_to_sample_masked, p=p)
+#         if (s[i] != new_cluster):
+#             logging.debug(f"{i:>2}: Assiging new cluster {s[i]} to {new_cluster}")
+#         s[i] = new_cluster
+
+#         c_j, n_j = np.unique(s, return_counts=True)
+#         thetas = thetas_to_sample[c_j]
+
+#         # Now reset the clusters
+#         s = reset_clusters_index_to_zero(s)
+
+#     dpm.set_parameters(thetas)
+#     return s
 
 
 

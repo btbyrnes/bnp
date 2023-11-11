@@ -2,7 +2,7 @@ from scipy.stats import distributions
 from classes.variables.base import Parameter, MH_SCALE_DEFAULT
 
 
-class InvGammaParameter(Parameter):
+class InvGamma(Parameter):
     _shape:float    = 1.0
     _scale:float    = 1.0
     _current:float  = 1.0
@@ -25,11 +25,11 @@ class InvGammaParameter(Parameter):
             raise Exception("Attempted to set InvGamma to negative, outside of support")
     
     def generate_mh_proposal(self, scale=MH_SCALE_DEFAULT) -> Parameter:
-        if (self._constant == True): return InvGammaParameter(self._shape, self._scale, self._current, self._constant)
+        if (self._constant == True): return InvGamma(self._shape, self._scale, self._current, self._constant)
         else:
             proposed = self._current + distributions.norm.rvs(scale=scale)
             if proposed <= 0.0: proposed = 1e-5
-            y = InvGammaParameter(self._shape, self._scale, proposed, self._constant)
+            y = InvGamma(self._shape, self._scale, proposed, self._constant)
             return y
 
     def random_draw(self):
