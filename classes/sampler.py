@@ -2,162 +2,63 @@ import numpy as np
 from scipy.stats import distributions
 from classes.likelihood import Likelihood
 from classes.variables import Parameter
-
+from classes.model import Model
 import logging
 
-
-def mh_step(y:np.ndarray, var:Likelihood):
-    proposed = var.generate_mh_proposals()
-    
-    log_current = var.log_likelihood(y)
-    log_proposed = proposed.log_likelihood(y)
-
-    log_alpha = log_proposed - log_current
-    alpha = np.exp(log_alpha)
-    p = np.min([1, alpha])
-
-    u = distributions.uniform.rvs()
-
-    if p > u:
-        return proposed
-    else:
-        return var
-    
+MH_SCALE_DEFAULT = 0.2
 
 class MHSampler:
     _data:np.ndarray
-    _likelihood:Likelihood
+    _model:Model
     _chain:list
+    _acceptances:int    = 0
+    _samples:int        = 0
 
-    def __init__(self, y, likelihood:Likelihood) -> None:
+    def __init__(self, y, model:Model) -> None:
         self._data = y
-        self._likelihood = likelihood
+        self._model = model
 
     def sample(self, steps=100, burn_in=10, lag=5):
         chain = []
         y = self._data
-        Likelihood = self._likelihood
-        new_likelihood = Likelihood
         for i in range(steps):
-            new_likelihood = mh_step(y, new_likelihood)
+            self.mh_step(y)
             if i > burn_in and i % lag == 0:
-                chain.append(new_likelihood)
+                chain.append(self._model.current_parameters())
+
         self.set_chain(chain)
+        print(f"Acceptance Rate: {self._acceptances}/{self._samples} = {100*self._acceptances/float(self._samples):.3f}%")
+
+    def mh_step(self, y:np.ndarray, scale=MH_SCALE_DEFAULT) -> list[Parameter]:
+        likelihood = self._model._likelihood
+        current = self._model._parameters
+        proposal = []
+
+        for p in current:
+            proposed = p.generate_mh_proposal(scale)
+            proposal.append(proposed)
+
+        log_current = likelihood.log_likelihood(y, current)
+        log_proposed = likelihood.log_likelihood(y, proposal)
+
+        log_alpha = log_proposed - log_current
+        alpha = np.exp(log_alpha)
+        p = np.min([1, alpha])
+
+        u = distributions.uniform.rvs()
+
+        self._samples += 1
+        if p > u:
+            self._acceptances += 1
+            self._model._parameters = proposal
 
     def set_chain(self, chain):
         self._chain = chain
-
 
     def get_chain(self):
         chain = self._chain
         parameters = []
         for row in chain:
-            parameters.append(row.get_values())
+            parameters.append(row)
 
         return parameters
-
-
-# def normal(y, theta:np.ndarray):
-#     logger = logging.getLogger(__name__)
-#     assert isinstance(theta, np.ndarray)
-
-#     logger.info(f"theta: {theta} {type(theta)} {theta.ndim} {theta.shape}")
-#     logger.info(f"y: {y}")
-#     logger.info(f"mean y: {np.mean(y)}")
-#     if theta.ndim != 2:
-#         theta = np.array([theta])
-#     mu = theta[:, 0]
-#     sigma = 1
-#     log_p = distributions.norm.logpdf(y, loc=mu, scale=sigma)
-#     logger.info(f"log_p: {log_p}")
-#     return np.sum(log_p)
-
-
-# def joint_normal(y, theta:np.ndarray):    # Type output this
-#     logger = logging.getLogger(__name__)
-#     assert isinstance(theta, np.ndarray)
-
-#     logger.info(f"theta: {theta} {type(theta)} {theta.ndim} {theta.shape}")
-#     logger.info(f"y: {y}")
-#     logger.info(f"mean y: {np.mean(y)}")
-#     if theta.ndim != 2:
-#         theta = np.array([theta])
-#     mu = theta[:, 0]
-#     sigma = theta[:, 1]
-#     log_p = distributions.norm.logpdf(y, loc=mu, scale=sigma)
-#     logger.info(f"log_p: {log_p}")
-#     return np.sum(log_p)
-
-
-# def generate_symmetric_proposal(random_variable:list[RandomVariable]|RandomVariable, step_size) -> np.ndarray:
-#     logger = logging.getLogger(__name__)
-#     random_variable = random_variable
-
-#     if isinstance(random_variable, list):
-#         # logging.debug(f"if isinstance(random_variable, list): {isinstance(random_variable, list)}")
-#         proposed = []
-#         for r in random_variable:
-#             proposed.append(r.current + step_size * distributions.norm.rvs())
-#     else:
-#         proposed = random_variable.current + step_size * distributions.norm.rvs()
-    
-#     # logger.debug(f"proposed: {proposed}")
-#     return np.array(proposed)
-
-
-# def mh_step(y:np.ndarray, thetas:list[RandomVariable], likelihood, step_size):
-#     logger = logging.getLogger(__name__)
-#     logger.info(__name__)
-#     # generate proposals for each theta
-#     thetas_current = []
-#     thetas_proposed = []
-
-#     # logger.debug(f"theta: {thetas}")
-#     for t in thetas:
-#         thetas_current.append(t.value)
-#     thetas_current = np.array(thetas_current)
-#     thetas_proposed = generate_symmetric_proposal(thetas, step_size=step_size)
-
-#     logging.info(f"thetas_current:  {thetas_current}") 
-#     logging.info(f"thetas_proposed: {thetas_proposed}") 
-#     # logger.debug(f"theta_current:  {thetas_current} {thetas_current.shape}")
-#     # logger.debug(f"theta_proposed: {thetas_proposed} {thetas_proposed.shape}")
-
-#     # proposal log likelihood
-#     log_likelihood_proposed = joint_normal(y, thetas_proposed)
-
-#     log_prior_proposed = []
-#     log_prior_current = []
-
-#     for i in range(len(thetas)):
-#         log_prior_proposed.append(thetas[i].prior_likelihood(thetas_proposed[i]))
-#     log_prior_proposed = np.sum(log_prior_proposed)
-
-#     # current log likelihood
-#     log_likelihood_current = joint_normal(y, thetas_current)
-
-
-#     for i in range(len(thetas_current)):
-#         log_prior_current.append(thetas[i].prior_likelihood(thetas_current[i]))
-#     log_prior_current = np.sum(log_prior_current)
-
-#     logger.info(f"log_likelihood_proposed: {log_likelihood_proposed}")
-#     logger.info(f"log_likelihood_current:  {log_likelihood_current}")
-#     logger.info(f"log_prior_current:       {log_prior_current}")
-#     logger.info(f"log_prior_proposed:      {log_prior_proposed}")
-#     log_r = log_likelihood_proposed + log_prior_proposed - log_likelihood_current - log_prior_current
-#     logger.info(f"log_r:                   {log_r}")
-#     r = np.exp(log_r)
-#     logger.info(f"r: {r}")
-    
-#     p = np.min([1, r])
-
-#     u = distributions.uniform.rvs()
-#     accept = 0
-#     if p > u:
-#         accept = 1
-#         logger.debug(f"p > u: {p} > {u}")
-#         for i in range(len(thetas)):
-#             thetas[i].current = thetas_proposed[i]
-#         # logging.debug(f"thetas: {thetas}")
-#     return thetas, accept

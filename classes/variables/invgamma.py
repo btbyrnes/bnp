@@ -8,7 +8,7 @@ class InvGamma(Parameter):
     _current:float  = 1.0
     _constant:bool  = False
 
-    def __init__(self, shape=0.0, scale=1.0, current=1.0, constant=False) -> None:
+    def __init__(self, shape=1.0, scale=1.0, current=1.0, constant=False) -> None:
         self._shape = shape
         self._scale = scale
         self._current = current
@@ -37,5 +37,8 @@ class InvGamma(Parameter):
         scale = self._scale
         return distributions.invgamma.rvs(a=a, scale=scale)
 
+    def __repr__(self) -> str:
+        return self.__str__()
+
     def __str__(self) -> str:
-        return f"IG({self._shape}, {self._scale}) - const={self._constant} - current={self._current:.3f}"
+        return f"IG({self._shape:.3f}, {self._scale:.3f}) = {self._current:.3f}"

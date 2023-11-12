@@ -18,9 +18,6 @@ class Normal(Parameter):
     def get_value(self) -> float:
         return self._current
     
-    def set_value(self, current) -> None:
-        self._current = current
-    
     def generate_mh_proposal(self, scale=MH_SCALE_DEFAULT) -> Parameter:
         if (self._constant == True): return Normal(self._mu, self._sigma, self._current, self._constant)
         else:
@@ -28,11 +25,14 @@ class Normal(Parameter):
             y = Normal(self._mu, self._sigma, proposed, self._constant)
             return y
 
-    def random_draw(self):
+    def random_draw(self) -> np.float64:
         mu = self._mu
         sigma = self._sigma
         return distributions.norm.rvs(loc=mu, scale=sigma)
+    
+    def __repr__(self) -> str:
+        return self.__str__()
 
     def __str__(self) -> str:
-        return f"N({self._mu}, {self._sigma}^2) - const={self._constant} - current={self._current:.3f}"
+        return f"N({self._mu:.3f}, {self._sigma:.3f}^2) = {self._current:.3f}"
 
