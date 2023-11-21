@@ -4,10 +4,12 @@ import numpy as np
 MH_SCALE_DEFAULT = 0.2
 
 
-class Parameter(ABC):
+class RandomVariable(ABC):
     _constant:bool
     _current:float
     def __init__(self, current, constant=False) -> None: pass
+
+    def new(self): ...
 
     def get_value(self) -> float: ...
 

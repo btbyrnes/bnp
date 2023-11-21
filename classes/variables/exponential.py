@@ -1,9 +1,9 @@
 from scipy.stats import distributions
-from classes.variables import Parameter
+from classes.variables import RandomVariable
 from classes.variables.base import MH_SCALE_DEFAULT
 
 
-class Exponential(Parameter):
+class Exponential(RandomVariable):
     _loc:float      = 1.0
     _current:float  = 1.0
     _constant:bool  = False
@@ -23,7 +23,7 @@ class Exponential(Parameter):
         except:
             raise Exception("Attempted to set Exponential to negative, outside of support")
     
-    def generate_mh_proposal(self, scale=MH_SCALE_DEFAULT) -> Parameter:
+    def generate_mh_proposal(self, scale=MH_SCALE_DEFAULT) -> RandomVariable:
         if (self._constant == True): return Exponential(self._shape, self._current, self._constant)
         else:
             proposed = self._current + distributions.norm.rvs(scale=scale)
