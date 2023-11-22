@@ -31,6 +31,13 @@ class Exponential(RandomVariable):
             y = Exponential(self._shape, proposed, self._constant)
             return y
 
+    def log_prior(self, proposed) -> float:
+        log_p = 0.0
+        log_p = distributions.expon.logpdf(proposed, self._shape,)
+        log_p = float(log_p)
+        return log_p
+
+
     def random_draw(self):
         a = self._loc
         return distributions.expon.rvs(mu=a)

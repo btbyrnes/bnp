@@ -17,7 +17,6 @@ class InvGamma(RandomVariable):
     def new(self, current=None):
         if current is None: current = self._current
         x = InvGamma(self._shape, self._scale, current, self._constant)
-        # print("20", x, type(x), id(x))
         return x
 
     def get_value(self) -> float:
@@ -40,6 +39,17 @@ class InvGamma(RandomVariable):
             if proposed <= 0.0: proposed = 1e-5
             y = InvGamma(self._shape, self._scale, proposed, self._constant)
             return y
+
+    def log_current(self) -> float:
+        shape = self._shape
+        scale = self._scale
+        return distributions.norm.logpdf(self._current, shape, scale=scale)
+
+    def log_prior(self, proposed:float) -> float:
+        log_p = 0.0
+        log_p = distributions.invgamma.logpdf(proposed, self._shape, scale=self._scale)
+        log_p = float(log_p)
+        return log_p
 
     def random_draw(self):
         a = self._shape

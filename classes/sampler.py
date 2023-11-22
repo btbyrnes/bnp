@@ -49,10 +49,6 @@ class Chain:
             mean = np.std(self._chain_contents[i])
             chain_std.append(mean)
         return chain_std
-    
-
-
-
 
 
 class MHSampler:
@@ -87,8 +83,22 @@ class MHSampler:
             proposed = p.generate_mh_proposal(scale)
             proposal.append(proposed)
 
-        log_current = likelihood.log_likelihood(y, current)
-        log_proposed = likelihood.log_likelihood(y, proposal)
+        log_prior_current = []
+        for i, p in enumerate(current):
+            lp = p.log_prior(proposed=p.get_value())
+            log_prior_current.append(lp)
+
+
+        log_prior_proposed = []
+        for i, p in enumerate(current):
+            lc = p.log_prior(proposed=p.get_value())
+            log_prior_proposed.append(lc)
+
+        # print(sum(log_prior))
+        # print(sum(log_current))
+
+        log_current = likelihood.log_likelihood(y, current) + sum(log_prior_current)
+        log_proposed = likelihood.log_likelihood(y, proposal) + sum(log_prior_proposed)
 
         log_alpha = log_proposed - log_current
         alpha = np.exp(log_alpha)

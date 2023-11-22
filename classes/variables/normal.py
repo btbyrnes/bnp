@@ -15,11 +15,8 @@ class Normal(RandomVariable):
         self._constant = constant
 
     def new(self, current=None):
-        # Get a copy of this measure with the priors specified and 
-        # some new value
         if current is None: current = self._current
         x = Normal(self._mu, self._sigma, current, self._constant)
-        # print("22", x, type(x), id(x))
         return x
 
     def set_current(self, current:float) -> float:
@@ -37,6 +34,12 @@ class Normal(RandomVariable):
             proposed = self._current + distributions.norm.rvs(scale=scale)
             y = Normal(self._mu, self._sigma, proposed, self._constant)
             return y
+    
+    def log_prior(self, proposed:float) -> float:
+        log_p = 0.0
+        log_p = distributions.norm.logpdf(proposed, loc=self._mu, scale=self._sigma)
+        log_p = float(log_p)
+        return log_p
 
     def random_draw(self) -> np.float64:
         mu = self._mu

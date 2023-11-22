@@ -14,21 +14,21 @@ class PoissonLikelihood(Likelihood):
         mu = params[0].get_value()
         return np.sum(distributions.poisson.logpmf(k=y, mu=mu))
     
-    def generate_mh_proposals(self, scale=MH_SCALE_DEFAULT) -> Likelihood:
-        proposals = []
-        params = self._params
+    # def generate_mh_proposals(self, scale=MH_SCALE_DEFAULT) -> Likelihood:
+    #     proposals = []
+    #     params = self._params
 
-        for p in params:
-            proposed = p.generate_mh_proposal(scale=scale)
-            proposals.append(proposed)
+    #     for p in params:
+    #         proposed = p.generate_mh_proposal(scale=scale)
+    #         proposals.append(proposed)
 
-        y = PoissonLikelihood(proposals)
+    #     y = PoissonLikelihood(proposals)
 
-        return y
+    #     return y
             
-    def __getitem__(self, key):
-        assert key < len(self._params)
-        return self._params[key]
+    # def __getitem__(self, key):
+    #     assert key < len(self._params)
+    #     return self._params[key]
 
     def __str__(self) -> str:
         return f"Poisson likelihood"
