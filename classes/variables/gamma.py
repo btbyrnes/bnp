@@ -2,7 +2,7 @@ from scipy.stats import distributions
 from classes.variables.base import RandomVariable, MH_SCALE_DEFAULT
 
 
-class InvGamma(RandomVariable):
+class Gamma(RandomVariable):
     _shape:float    = 1.0
     _scale:float    = 1.0
     _current:float  = 1.0
@@ -16,7 +16,7 @@ class InvGamma(RandomVariable):
 
     def new(self, current=None):
         if current is None: current = self._current
-        x = InvGamma(self._shape, self._scale, current, self._constant)
+        x = Gamma(self._shape, self._scale, current, self._constant)
         return x
 
     def get_value(self) -> float:
@@ -30,18 +30,18 @@ class InvGamma(RandomVariable):
             assert current >= 0.0
             self._current = current
         except:
-            raise Exception("Attempted to set InvGamma to negative, outside of support")
+            raise Exception("Attempted to set Gamma to negative, outside of support")
     
     def generate_proposal(self) -> float:
-        if (self._constant == True): return InvGamma(self._shape, self._current, self._constant).get_value()
+        if (self._constant == True): return Gamma(self._shape, self._current, self._constant).get_value()
         else:
             a = self._shape
             scale = self._scale
-            propsosed = distributions.invgamma.rvs(a=a, scale=scale)
+            propsosed = distributions.gamma.rvs(a=a, scale=scale)
             return propsosed
             
     def generate_rw_proposal(self, scale=MH_SCALE_DEFAULT) -> float:
-        if (self._constant == True): return InvGamma(self._shape, self._scale, self._current, self._constant)
+        if (self._constant == True): return Gamma(self._shape, self._scale, self._current, self._constant)
         else:
             proposed = self._current + distributions.norm.rvs(scale=scale)
             if proposed <= 0.0: proposed = 1e-5
@@ -54,14 +54,14 @@ class InvGamma(RandomVariable):
 
     def log_prior(self, y:float) -> float:
         log_p = 0.0
-        log_p = distributions.invgamma.logpdf(y, self._shape, scale=self._scale)
+        log_p = distributions.gamma.logpdf(y, self._shape, scale=self._scale)
         log_p = float(log_p)
         return log_p
 
     def random_draw(self):
         a = self._shape
         scale = self._scale
-        return distributions.invgamma.rvs(a=a, scale=scale)
+        return distributions.gamma.rvs(a=a, scale=scale)
 
     def __repr__(self) -> str:
         return self.__str__()

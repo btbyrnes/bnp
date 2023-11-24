@@ -3,7 +3,7 @@ import numpy as np
 from classes.variables import RandomVariable
 from classes.dataset import DPMDataset
 
-from .variables import RandomVariable, Normal, InvGamma
+from .variables import RandomVariable, Normal, InvGamma, Exponential
 from .likelihood import Likelihood, NormalLikelihood
 from .sampler import MHSampler
 from .model import Model
@@ -36,8 +36,6 @@ class BaseMeasure:
     def get_instance_with_values(self, values:list[float]) -> list[RandomVariable]:
         return_list = []
         for i, v in enumerate(values):
-            # print("35 i: ", v)
-            # print("36", self._params[i].new(current=v))
             return_list.append(self._params[i].new(current=v))
 
         return return_list
@@ -53,6 +51,11 @@ class NormalBaseMeasure(BaseMeasure):
     def __init__(self, params: list[RandomVariable]=[Normal(mu=0,sigma=3), InvGamma()]) -> None:
         super().__init__(params)
     
+    
+class ExponentialBaseMeasure(BaseMeasure):
+    def __init__(self, params: list[RandomVariable]=[Exponential(4)]) -> None:
+        super().__init__(params)
+
 
 class DPMChain:
     s: list[int]
@@ -137,7 +140,7 @@ class DPM:
     def sample(self, samples=10) -> None:
         for jj in range(samples):
             if jj % int(samples/5) == 0 and jj > 0: 
-                print(f"step: {jj:>4d}/{jj:>4d} : {self._dataset.get_s()}")
+                print(f"step: {jj:>4d}/{samples:>4d} : {self._dataset.get_s()}")
             self.sample_over_cluster_assignments()
             self.mh_steps_over_each_cluster()
 
@@ -271,7 +274,7 @@ class DPM:
             model = Model(params, likelihood)
 
             sampler = MHSampler(y, model)
-            chain = sampler.sample()
+            chain = sampler.rw_sample(scale=0.2)
             sampled_parameters.append(chain.mean())
 
         self._dpm_chain.phi.append(sampled_parameters)

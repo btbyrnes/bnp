@@ -82,7 +82,7 @@ class DPMDataset:
         return len(self._y)
 
     def __repr__(self) -> str:
-        return self.__str__
+        return self.__str__()
 
     def __str__(self) -> str:
         s = ""

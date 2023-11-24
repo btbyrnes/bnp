@@ -28,16 +28,21 @@ class Normal(RandomVariable):
     def get_current(self) -> float:
         return self._current
     
-    def generate_mh_proposal(self, scale=MH_SCALE_DEFAULT) -> RandomVariable:
+    def generate_proposal(self) -> np.float64:
+        loc = self._mu
+        scale = self._sigma
+        return distributions.norm.rvs(loc=loc, scale=scale)
+    
+    def generate_rw_proposal(self, scale=MH_SCALE_DEFAULT) -> float:
         if (self._constant == True): return Normal(self._mu, self._sigma, self._current, self._constant)
         else:
             proposed = self._current + distributions.norm.rvs(scale=scale)
-            y = Normal(self._mu, self._sigma, proposed, self._constant)
-            return y
-    
-    def log_prior(self, proposed:float) -> float:
+            # y = Normal(self._mu, self._sigma, proposed, self._constant)
+            return proposed
+
+    def log_prior(self, y:float) -> float:
         log_p = 0.0
-        log_p = distributions.norm.logpdf(proposed, loc=self._mu, scale=self._sigma)
+        log_p = distributions.norm.logpdf(y, loc=self._mu, scale=self._sigma)
         log_p = float(log_p)
         return log_p
 

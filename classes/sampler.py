@@ -6,6 +6,7 @@ from classes.model import Model
 import logging
 
 MH_SCALE_DEFAULT = 0.2
+UNDERFLOW_LOG_MIN = -20
 
 class Chain:
     _variables:list         = []
@@ -16,7 +17,6 @@ class Chain:
         for v in variables:
             chain_contents.append([])
         self._chain_contents = chain_contents
-
 
     def __getitem__(self, id):
         try:
@@ -63,44 +63,54 @@ class MHSampler:
         self._model = model
         self._chain = Chain(model._parameters)
 
-    def sample(self, steps=100, burn_in=10, lag=5) -> Chain:
+    def rw_sample(self, steps=100, burn_in=10, lag=5, scale=MH_SCALE_DEFAULT) -> Chain:
         y = self._data
         for i in range(steps):
-            self.mh_step(y)
+            self.mh_rw_step(y, scale)
             if i > burn_in and i % lag == 0:
                 current_params = self._model.current_parameters()
                 self._chain.add_obseration(current_params)
 
         # print(f"Acceptance Rate: {self._acceptances}/{self._samples} = {100*self._acceptances/float(self._samples):.3f}%")
         return self._chain
+    
+    def sample(self, steps=100, burn_in=10, lag=5) -> Chain:
+        y = self._data
+        for i in range(steps):
+            self.mh_independent_step(y)
+            if i > burn_in and i % lag == 0:
+                current_params = self._model.current_parameters()
+                self._chain.add_obseration(current_params)
+        # print(f"Acceptance Rate: {self._acceptances}/{self._samples} = {100*self._acceptances/float(self._samples):.3f}%")
+        return self._chain
 
-    def mh_step(self, y:np.ndarray, scale=MH_SCALE_DEFAULT) -> list[RandomVariable]:
+    def mh_rw_step(self, y:np.ndarray, scale=MH_SCALE_DEFAULT) -> list[RandomVariable]:
         likelihood = self._model._likelihood
         current = self._model._parameters
         proposal = []
 
         for p in current:
-            proposed = p.generate_mh_proposal(scale)
+            proposed = p.generate_rw_proposal(scale)
             proposal.append(proposed)
 
         log_prior_current = []
         for i, p in enumerate(current):
-            lp = p.log_prior(proposed=p.get_value())
+            lp = p.log_prior(y=p.get_value())
             log_prior_current.append(lp)
 
-
         log_prior_proposed = []
-        for i, p in enumerate(current):
-            lc = p.log_prior(proposed=p.get_value())
+        for i, p in enumerate(proposal):
+            lc = current[i].log_prior(y=p)
             log_prior_proposed.append(lc)
 
-        # print(sum(log_prior))
-        # print(sum(log_current))
-
-        log_current = likelihood.log_likelihood(y, current) + sum(log_prior_current)
-        log_proposed = likelihood.log_likelihood(y, proposal) + sum(log_prior_proposed)
+        log_current = likelihood.log_likelihood(y, current) + np.sum(log_prior_current)
+        log_proposed = likelihood.log_likelihood(y, proposal) + np.sum(log_prior_proposed)
 
         log_alpha = log_proposed - log_current
+
+        if log_alpha < UNDERFLOW_LOG_MIN:
+            log_alpha = UNDERFLOW_LOG_MIN
+
         alpha = np.exp(log_alpha)
         p = np.min([1, alpha])
 
@@ -109,12 +119,10 @@ class MHSampler:
         self._samples += 1
         if p > u:
             self._acceptances += 1
-            self._model._parameters = proposal
+            self._model.update_parameters(proposal)
 
     def update_parameters(self, update):
-        # update = 
         self._model.update_parameters(update)
-
 
     def parameter_means(self) -> list[float]:
         chain = self._chain
@@ -126,3 +134,41 @@ class MHSampler:
     def get_chain(self):
         chain = self._chain
         return chain
+    
+    def mh_independent_step(self, y:np.ndarray) -> list[RandomVariable]:
+        likelihood = self._model._likelihood
+        current = self._model._parameters
+        proposal = []
+
+        for p in current:
+            proposed = p.generate_proposal()
+            proposal.append(proposed)
+
+        log_prior_current = []
+        for i, p in enumerate(current):
+            lp = p.log_prior(y=p.get_value())
+            log_prior_current.append(lp)
+
+        log_prior_proposed = []
+        for i, p in enumerate(proposal):
+            lc = current[i].log_prior(y=p)
+            log_prior_proposed.append(lc)
+
+        log_current = likelihood.log_likelihood(y, current) + sum(log_prior_current)
+        log_proposed = likelihood.log_likelihood(y, proposal) + sum(log_prior_proposed)
+
+        log_alpha = log_proposed - log_current
+
+        if log_alpha < UNDERFLOW_LOG_MIN:
+            log_alpha = UNDERFLOW_LOG_MIN
+        
+        alpha = np.exp(log_alpha)
+
+        p = np.min([1, alpha])
+
+        u = distributions.uniform.rvs()
+
+        self._samples += 1
+        if p > u:
+            self._acceptances += 1
+            self._model.update_parameters(proposal)

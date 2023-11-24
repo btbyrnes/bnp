@@ -10,25 +10,10 @@ class PoissonLikelihood(Likelihood):
         if params: super().__init__(params)
     
     @classmethod
-    def log_likelihood(cls, y:np.ndarray, params:list[RandomVariable]) -> float:
-        mu = params[0].get_value()
+    def log_likelihood(cls, y:np.ndarray, params:list) -> float:
+        mu = params[0]
+        if isinstance(mu, RandomVariable): mu = mu.get_value()
         return np.sum(distributions.poisson.logpmf(k=y, mu=mu))
-    
-    # def generate_mh_proposals(self, scale=MH_SCALE_DEFAULT) -> Likelihood:
-    #     proposals = []
-    #     params = self._params
-
-    #     for p in params:
-    #         proposed = p.generate_mh_proposal(scale=scale)
-    #         proposals.append(proposed)
-
-    #     y = PoissonLikelihood(proposals)
-
-    #     return y
-            
-    # def __getitem__(self, key):
-    #     assert key < len(self._params)
-    #     return self._params[key]
 
     def __str__(self) -> str:
         return f"Poisson likelihood"
